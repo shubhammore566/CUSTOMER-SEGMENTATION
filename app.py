@@ -51,7 +51,7 @@ div[data-testid="stMetric"] label, div[data-testid="stMetric"] div {
 st.markdown("""
 <div class="main-header">
     <h1>🧑‍🤝‍🧑 Customer Segmentation Studio</h1>
-    <p>Upload data → Unsupervised model chuno (KMeans / Hierarchical / DBSCAN / GMM) → Poora dashboard + segment insights paao</p>
+    <p>Upload data → Choose an unsupervised model (KMeans / Hierarchical / DBSCAN / GMM) → Get a full dashboard + segment insights</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -69,7 +69,7 @@ def color_for(seg, idx):
 
 # ---------------- 1. FILE UPLOAD ----------------
 st.markdown('<div class="section-card">', unsafe_allow_html=True)
-uploaded_file = st.file_uploader("📂 Apni data file upload karo (CSV ya Excel)", type=["csv", "xlsx", "xls"])
+uploaded_file = st.file_uploader("📂 Upload your data file (CSV or Excel)", type=["csv", "xlsx", "xls"])
 st.markdown('</div>', unsafe_allow_html=True)
 
 @st.cache_data(show_spinner=False)
@@ -105,28 +105,28 @@ if uploaded_file is not None:
         feature_cols_all = numeric_cols
 
     if len(feature_cols_all) < 2:
-        st.error("Clustering ke liye kam se kam 2 numeric (non-ID) columns chahiye.")
+        st.error("At least 2 numeric (non-ID) columns are needed for clustering.")
     else:
         # ============================================================
         # FEATURE SELECTION (works with as many columns as the file has —
-        # zyada data / zyada columns aane par bhi dashboard sahi se scale hota hai)
+        # the dashboard scales correctly even with more data / more columns)
         # ============================================================
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.subheader("⚙️ Feature & Model Setup")
 
         if id_like_cols:
-            st.caption(f"ℹ️ ID-jaise columns auto-skip kiye gaye hain (feature nahi banaye): {', '.join(id_like_cols)}")
+            st.caption(f"ℹ️ ID-like columns were auto-skipped (not used as features): {', '.join(id_like_cols)}")
 
         selected_features = st.multiselect(
-            "🧮 Clustering ke liye features chuno (jitna zyada relevant data, utna behtar segmentation)",
+            "🧮 Choose features for clustering (the more relevant data, the better the segmentation)",
             feature_cols_all,
             default=feature_cols_all,
         )
         if len(selected_features) < 2:
-            st.warning("Kam se kam 2 features select karo.")
+            st.warning("Please select at least 2 features.")
             st.stop()
 
-        st.markdown("**🤖 Unsupervised model chuno:**")
+        st.markdown("**🤖 Choose an unsupervised model:**")
         model_choice = st.radio(
             "Model Selection",
             ["KMeans (Clustering)", "Hierarchical (Agglomerative)", "DBSCAN (Density-based)", "Gaussian Mixture (GMM)"],
@@ -142,24 +142,24 @@ if uploaded_file is not None:
         max_k = min(10, n_samples - 1) if n_samples > 2 else 2
         max_k = max(max_k, 2)
 
-        # Visualization ke liye PCA use nahi kar rahe — seedha pehle 2 selected
-        # features (scaled) ka scatter dikhate hain. Asli clustering hamesha
-        # saare selected features par hoti hai, ye sirf 2D plot ke liye hai.
+        # We're not using PCA for visualization — we directly show a scatter
+        # of the first 2 selected (scaled) features. The actual clustering
+        # always runs on all selected features; this is only for the 2D plot.
         use_pca_view = False
         X_view = X_scaled[:, :2]
         view_x_label = selected_features[0]
         view_y_label = selected_features[1]
         if len(selected_features) > 2:
-            st.caption(f"ℹ️ Scatter plot sirf **{selected_features[0]}** vs **{selected_features[1]}** dikha raha hai "
-                       f"(2D view ke liye) — clustering baaki sab {len(selected_features)} features par bhi hui hai.")
+            st.caption(f"ℹ️ The scatter plot only shows **{selected_features[0]}** vs **{selected_features[1]}** "
+                       f"(for the 2D view) — clustering was still performed on all {len(selected_features)} features.")
 
         # ============================================================
-        # NEW: PREVIEW SCATTER — cluster form hone se PEHLE ka data
+        # NEW: PREVIEW SCATTER — data BEFORE clusters are formed
         # ============================================================
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.subheader("🔎 Data Before Clustering (Raw Preview)")
-        st.caption("Ye scatter clustering model chalne se **pehle** ka hai — sab points abhi ek hi color "
-                   "mein hain, koi segment assign nahi hua hai.")
+        st.caption("This scatter shows the data **before** the clustering model runs — "
+                   "all points are currently the same color, no segment has been assigned yet.")
         fig0, ax0 = plt.subplots(figsize=(6, 4))
         ax0.scatter(X_view[:, 0], X_view[:, 1], s=90, color=PALETTE[0],
                     edgecolor="white", linewidth=1.0, alpha=0.85)
@@ -244,8 +244,8 @@ if uploaded_file is not None:
             st.markdown('<div class="section-card">', unsafe_allow_html=True)
             st.subheader("📉 Elbow Method Graph")
             cluster_mode = st.radio(
-                "Cluster count kaise decide karein?",
-                ["Manual (khud select karo)", "Auto (Elbow method se best value)"]
+                "How should the cluster count be decided?",
+                ["Manual (choose it yourself)", "Auto (best value via elbow method)"]
             )
 
             k_range = range(1, max_k + 1)
@@ -260,8 +260,8 @@ if uploaded_file is not None:
             with fig_col:
                 st.pyplot(fig1, use_container_width=True)
 
-            if cluster_mode == "Manual (khud select karo)":
-                n_clusters = st.slider("Number of clusters chuno", min_value=2, max_value=max_k, value=min(3, max_k))
+            if cluster_mode == "Manual (choose it yourself)":
+                n_clusters = st.slider("Choose number of clusters", min_value=2, max_value=max_k, value=min(3, max_k))
             else:
                 diffs = [wcss[i - 1] - wcss[i] for i in range(1, len(wcss))]
                 n_clusters = diffs.index(max(diffs)) + 2 if diffs else 2
@@ -281,8 +281,8 @@ if uploaded_file is not None:
             st.subheader("📉 Silhouette Score by Cluster Count")
             linkage = st.selectbox("Linkage method", ["ward", "average", "complete", "single"], index=0)
             cluster_mode = st.radio(
-                "Cluster count kaise decide karein?",
-                ["Manual (khud select karo)", "Auto (best silhouette score se)"]
+                "How should the cluster count be decided?",
+                ["Manual (choose it yourself)", "Auto (best silhouette score)"]
             )
 
             k_range = range(2, max_k + 1)
@@ -297,8 +297,8 @@ if uploaded_file is not None:
             with fig_col:
                 st.pyplot(fig1, use_container_width=True)
 
-            if cluster_mode == "Manual (khud select karo)":
-                n_clusters = st.slider("Number of clusters chuno", min_value=2, max_value=max_k, value=min(3, max_k))
+            if cluster_mode == "Manual (choose it yourself)":
+                n_clusters = st.slider("Choose number of clusters", min_value=2, max_value=max_k, value=min(3, max_k))
             else:
                 best_idx = int(np.argmax(sil_scores))
                 n_clusters = list(k_range)[best_idx]
@@ -315,8 +315,8 @@ if uploaded_file is not None:
         elif model_choice == "DBSCAN (Density-based)":
             st.markdown('<div class="section-card">', unsafe_allow_html=True)
             st.subheader("⚙️ DBSCAN Parameters")
-            st.caption("DBSCAN khud decide karta hai kitne clusters banane hain — density ke aadhar par. "
-                       "Bahar ke points ko 'Noise / Outlier' maana jaata hai.")
+            st.caption("DBSCAN decides on its own how many clusters to create — based on density. "
+                       "Points outside any dense region are treated as 'Noise / Outlier'.")
             col_a, col_b = st.columns(2)
             with col_a:
                 eps = st.slider("eps (neighbourhood radius)", min_value=0.1, max_value=3.0, value=0.5, step=0.05)
@@ -328,7 +328,7 @@ if uploaded_file is not None:
             raw_labels = model.fit_predict(X_scaled)
             n_found = len(set(raw_labels) - {-1})
             n_noise = int((raw_labels == -1).sum())
-            st.info(f"DBSCAN ne **{n_found} clusters** dhoonde, aur **{n_noise} points** ko noise/outlier maana.")
+            st.info(f"DBSCAN found **{n_found} clusters**, and treated **{n_noise} points** as noise/outliers.")
             algo_summary = f"DBSCAN (eps={eps}, min_samples={min_samples}) → {n_found} clusters found"
 
         # ============================================================
@@ -338,8 +338,8 @@ if uploaded_file is not None:
             st.markdown('<div class="section-card">', unsafe_allow_html=True)
             st.subheader("📉 BIC Score by Component Count")
             cluster_mode = st.radio(
-                "Component (segment) count kaise decide karein?",
-                ["Manual (khud select karo)", "Auto (sabse kam BIC se)"]
+                "How should the component (segment) count be decided?",
+                ["Manual (choose it yourself)", "Auto (lowest BIC)"]
             )
 
             k_range = range(1, max_k + 1)
@@ -354,8 +354,8 @@ if uploaded_file is not None:
             with fig_col:
                 st.pyplot(fig1, use_container_width=True)
 
-            if cluster_mode == "Manual (khud select karo)":
-                n_clusters = st.slider("Number of segments chuno", min_value=2, max_value=max_k, value=min(3, max_k))
+            if cluster_mode == "Manual (choose it yourself)":
+                n_clusters = st.slider("Choose number of segments", min_value=2, max_value=max_k, value=min(3, max_k))
             else:
                 n_clusters = list(k_range)[int(np.argmin(bic_scores))]
                 n_clusters = max(2, n_clusters)
