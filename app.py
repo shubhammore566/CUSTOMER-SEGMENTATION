@@ -263,10 +263,31 @@ if uploaded_file is not None:
             if cluster_mode == "Manual (choose it yourself)":
                 n_clusters = st.slider("Choose number of clusters", min_value=2, max_value=max_k, value=min(3, max_k))
             else:
-                diffs = [wcss[i - 1] - wcss[i] for i in range(1, len(wcss))]
-                n_clusters = diffs.index(max(diffs)) + 2 if diffs else 2
+                # Distance-from-baseline ("kneedle") elbow detection: draw a
+                # straight line from the first WCSS point to the last, then
+                # pick the k whose point sits farthest from that line. This
+                # finds the actual bend in the curve, unlike picking the
+                # single biggest consecutive drop (which is always k=1->2
+                # since WCSS falls fastest at the very start).
+                k_arr = np.array(list(k_range), dtype=float)
+                wcss_arr = np.array(wcss, dtype=float)
+                x1, y1 = k_arr[0], wcss_arr[0]
+                x2, y2 = k_arr[-1], wcss_arr[-1]
+                line_vec = np.array([x2 - x1, y2 - y1])
+                line_len = np.linalg.norm(line_vec)
+                if line_len == 0:
+                    n_clusters = 2
+                else:
+                    line_unit = line_vec / line_len
+                    distances = []
+                    for x, y in zip(k_arr, wcss_arr):
+                        point_vec = np.array([x - x1, y - y1])
+                        proj_len = np.dot(point_vec, line_unit)
+                        proj_point = proj_len * line_unit
+                        distances.append(np.linalg.norm(point_vec - proj_point))
+                    n_clusters = int(k_arr[int(np.argmax(distances))])
                 n_clusters = max(2, min(n_clusters, max_k))
-                st.info(f"Auto-selected clusters: **{n_clusters}**")
+                st.info(f"Auto-selected clusters: **{n_clusters}** (elbow point — farthest from the baseline line)")
             st.markdown('</div>', unsafe_allow_html=True)
 
             model = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
